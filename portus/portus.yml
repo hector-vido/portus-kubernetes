@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: portus
+  name: portus
+  namespace: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portus
+  template:
+    metadata:
+      labels:
+        app: portus
+    spec:
+      containers:
+      - image: opensuse/portus:2.5
+        imagePullPolicy: IfNotPresent
+        name: portus
+        env:
+        - name: PORTUS_MACHINE_FQDN_VALUE
+          value: 'portus.@IP@.nip.io'
+        - name: PORTUS_CHECK_SSL_USAGE_ENABLED
+          value: 'false'
+        - name: PORTUS_SECRET_KEY_BASE
+          value: '4linux'
+        - name: PORTUS_KEY_PATH
+          value: '/keys/tls.key'
+        - name: RAILS_SERVE_STATIC_FILES
+          value: 'true'
+        - name: PORTUS_PASSWORD
+          value: '4linux1234'
+        - name: PORTUS_DB_ADAPTER
+          value: 'mysql2'
+        - name: PORTUS_DB_HOST
+          value: 'mysql'
+        - name: PORTUS_DB_PORT
+          value: '3306'
+        - name: PORTUS_DB_USERNAME
+          value: 'portus'
+        - name: PORTUS_DB_PASSWORD
+          value: '4linux'
+        - name: PORTUS_DB_DATABASE
+          value: 'portus'
+        command:
+        - /bin/sh
+        - /init
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: cert
+          mountPath: /keys
+      - image: opensuse/portus:2.5
+        imagePullPolicy: IfNotPresent
+        name: background
+        env:
+        - name: PORTUS_MACHINE_FQDN_VALUE
+          value: 'portus.@IP@.nip.io'
+        - name: PORTUS_CHECK_SSL_USAGE_ENABLED
+          value: 'false'
+        - name: PORTUS_SECRET_KEY_BASE
+          value: '4linux'
+        - name: PORTUS_KEY_PATH
+          value: '/keys/tls.key'
+        - name: RAILS_SERVE_STATIC_FILES
+          value: 'true'
+        - name: PORTUS_PASSWORD
+          value: '4linux1234'
+        - name: PORTUS_DB_ADAPTER
+          value: 'mysql2'
+        - name: PORTUS_DB_HOST
+          value: 'mysql'
+        - name: PORTUS_DB_PORT
+          value: '3306'
+        - name: PORTUS_DB_USERNAME
+          value: 'portus'
+        - name: PORTUS_DB_PASSWORD
+          value: '4linux'
+        - name: PORTUS_DB_DATABASE
+          value: 'portus'
+        - name: PORTUS_BACKGROUND
+          value: 'true'
+        command:
+        - /bin/sh
+        - /init
+        volumeMounts:
+        - name: cert
+          mountPath: /keys
+
+      volumes:
+      - name: cert
+        secret:
+          secretName: portus-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: portus
+  name: portus
+  namespace: registry
+spec:
+  ports:
+  - port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: portus
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  generation: 1
+  name: portus
+  namespace: registry
+spec:
+  rules:
+  - host: portus.@IP@.nip.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: portus
+            port:
+              number: 3000
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - portus.@IP@.nip.io
+    secretName: portus-cert

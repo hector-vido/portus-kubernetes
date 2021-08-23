@@ -1,0 +1,20 @@
+# Docker Registry Configuration
+version: 0.1
+loglevel: debug
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+auth:
+  token:
+    realm: https://portus.@IP@.nip.io/v2/token
+    service: registry.@IP@.nip.io
+    issuer: portus.@IP@.nip.io
+    rootcertbundle: /usr/local/share/ca-certificates/tls.crt
+notifications:
+  endpoints:
+    - name: portus
+      url: https://portus.@IP@.nip.io/v2/webhooks/events

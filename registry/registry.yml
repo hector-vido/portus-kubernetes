@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: registry
+  name: registry
+  namespace: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      containers:
+      - image: registry:2.7
+        name: registry
+        volumeMounts:
+        - name: registry-data
+          mountPath: /var/lib/registry
+        - name: registry-conf
+          mountPath: /etc/docker/registry/
+        - name: cert
+          mountPath: /usr/local/share/ca-certificates/
+          readOnly: true
+        command:
+        - sh
+        - -c
+        - 'cat /usr/local/share/ca-certificates/*.crt >> /etc/ssl/certs/ca-certificates.crt && registry serve /etc/docker/registry/config.yml'
+      volumes:
+      - name: registry-data
+        persistentVolumeClaim:
+          claimName: registry
+      - name: registry-conf
+        configMap:
+          name: registry-conf
+      - name: cert
+        secret:
+          secretName: portus-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: registry
+  name: registry
+  namespace: registry
+spec:
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: registry
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry
+  namespace: registry
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+  namespace: registry
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+spec:
+  rules:
+  - host: registry.@IP@.nip.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: registry
+            port:
+              number: 5000
+        path: /
+        pathType: Prefix
+
+  tls:
+  - hosts:
+    - registry.@IP@.nip.io
+    secretName: registry-cert
